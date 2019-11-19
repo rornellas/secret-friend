@@ -1,19 +1,39 @@
 package com.fiap.friendsecret;
 
-import com.fiap.friendsecret.service.Bot;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+import com.fiap.friendsecret.repository.WishRepository;
+import com.pengrad.telegrambot.TelegramBot;
+import com.pengrad.telegrambot.TelegramBotAdapter;
 
 @SpringBootApplication
+@EnableScheduling
 public class FriendSecretApplication {
 
-	private static Bot bot;
+	@Value("${telegram.token}")
+	private String TOKEN;
 
-	public FriendSecretApplication(Bot bot) { this.bot = bot; }
-
+	static TelegramBot bot;
+	
 	public static void main(String[] args) {
 		SpringApplication.run(FriendSecretApplication.class, args);
-		bot.startBot();
 	}
 
+	@Bean
+	public TelegramBot getbot() {
+		if(bot == null) {
+			bot = TelegramBotAdapter.build(TOKEN);
+		}
+			
+		return bot;
+	}
+	
+	@Bean
+	public WishRepository getWishRepository() {
+		return new WishRepository();
+	}
 }

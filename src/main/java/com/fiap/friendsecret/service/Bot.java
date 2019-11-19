@@ -1,7 +1,19 @@
 package com.fiap.friendsecret.service;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map.Entry;
+
+import javax.annotation.PostConstruct;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import com.fiap.friendsecret.decision.DecisionChain;
+import com.fiap.friendsecret.decision.DecisionChainFactory;
+import com.fiap.friendsecret.exception.SecretFriendException;
 import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.TelegramBotAdapter;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.model.request.ChatAction;
 import com.pengrad.telegrambot.request.GetUpdates;
@@ -10,16 +22,9 @@ import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.BaseResponse;
 import com.pengrad.telegrambot.response.GetUpdatesResponse;
 import com.pengrad.telegrambot.response.SendResponse;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 public class Bot {
-
-    @Value("${telegram.token}")
-    private String TOKEN;
 
     //objeto responsável por receber as mensagens
     private GetUpdatesResponse updatesResponse;
@@ -30,43 +35,72 @@ public class Bot {
     //objeto responsável por gerenciar o envio de ações do chat
     private BaseResponse baseResponse;
 
+    //controle de off-set, isto é, a partir deste ID será lido as mensagens pendentes na fila
+    private Integer m=0;
+    
+    @Autowired
+    TelegramBot bot;
 
-    public void startBot() {
-        TelegramBot bot = TelegramBotAdapter.build(TOKEN);
-
-        //controle de off-set, isto é, a partir deste ID será lido as mensagens pendentes na fila
-        int m=0;
-
-        //loop infinito pode ser alterado por algum timer de intervalo curto
-        while (true){
-
-            //executa comando no Telegram para obter as mensagens pendentes a partir de um off-set (limite inicial)
-            updatesResponse =  bot.execute(new GetUpdates().limit(100).offset(m));
-
-            //lista de mensagens
-            List<Update> updates = updatesResponse.updates();
-
-            //análise de cada ação da mensagem
-            for (Update update : updates) {
-
-                //atualização do off-set
-                m = update.updateId()+1;
-
-                System.out.println("Recebendo mensagem:"+ update.message().text());
-
-                //envio de "Escrevendo" antes de enviar a resposta
-                baseResponse = bot.execute(new SendChatAction(update.message().chat().id(), ChatAction.typing.name()));
-                //verificação de ação de chat foi enviada com sucesso
-                System.out.println("Resposta de Chat Action Enviada?" + baseResponse.isOk());
-
-                //envio da mensagem de resposta
-                sendResponse = bot.execute(new SendMessage(update.message().chat().id(),"Não entendi... Wagner"));
-                //verificação de mensagem enviada com sucesso
-                System.out.println("Mensagem Enviada?" +sendResponse.isOk());
-
-            }
-
-        }
+    DecisionChain chain;
+    
+    @Autowired
+    DecisionChainFactory decisionChainFactory;
+    
+    public Bot() {
+	}
+    
+    @PostConstruct
+    private void init() {
+    	chain = decisionChainFactory.createDecisionChain();
     }
+    
+    @Scheduled(fixedDelay = 5000) 
+    private void buscarMensagens() {
+        //executa comando no Telegram para obter as mensagens pendentes a partir de um off-set (limite inicial)
+    	this.updatesResponse =  this.bot.execute(new GetUpdates().limit(100).offset(m));
+
+        //lista de mensagens
+        List<Update> updates = this.updatesResponse.updates();
+
+        //análise de cada ação da mensagem
+        for (Update update : updates) {
+
+            //atualização do off-set
+        	this.m = update.updateId()+1;
+
+            System.out.println("Recebendo mensagem:"+ update.message().text());
+
+            LinkedHashMap<String, ChatAction> nextAction = checkActionForMessage(update.message().text());
+            
+            for (Entry<String, ChatAction> acao : nextAction.entrySet()) {
+            	
+            	//envio de "Escrevendo" antes de enviar a resposta
+            	this.baseResponse = this.bot.execute(new SendChatAction(update.message().chat().id(), acao.getValue().name()));
+            	
+            	//verificação de ação de chat foi enviada com sucesso
+            	System.out.println("Resposta de Chat Action Enviada?" + this.baseResponse.isOk());
+            	
+            	//envio da mensagem de resposta
+            	this.sendResponse = this.bot.execute(new SendMessage(update.message().chat().id(),acao.getKey()));
+            	//verificação de mensagem enviada com sucesso
+            	System.out.println("Mensagem Enviada?" +sendResponse.isOk());
+			}
+        }
+	}
+
+	private LinkedHashMap<String, ChatAction> checkActionForMessage(final String text) {
+		LinkedHashMap<String, ChatAction> actions = new LinkedHashMap<>();
+		
+		try {
+			chain.processDecision(text, actions);
+		} catch (SecretFriendException e) {
+			actions.put(e.getMessage(), ChatAction.typing);
+		} catch (Exception e) {
+			actions.put("Ocorreu um erro desconhecido no aplicativo... por favor tente novamente", ChatAction.typing);
+			e.printStackTrace();
+		}
+		
+		return actions;
+	}
 
 }
