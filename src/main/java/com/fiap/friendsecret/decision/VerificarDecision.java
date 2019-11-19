@@ -1,8 +1,9 @@
 package com.fiap.friendsecret.decision;
 
-import java.util.Map;
+import java.util.List;
 
 import com.fiap.friendsecret.exception.BuscaInconsistenteException;
+import com.fiap.friendsecret.model.ActionMessage;
 import com.fiap.friendsecret.model.Wish;
 import com.fiap.friendsecret.repository.WishRepository;
 import com.pengrad.telegrambot.model.request.ChatAction;
@@ -17,7 +18,7 @@ class VerificarDecision extends AbstractDecision {
 	}
 	
 	@Override
-	public void processDecision(String text, Map<String, ChatAction> actions) {
+	public void processDecision(String text, List<ActionMessage> actions) {
 		if(text.startsWith("/verificar")) {
 			String[] itens = text.split("\\*");
 			
@@ -38,7 +39,7 @@ class VerificarDecision extends AbstractDecision {
 				builder.append("Presente desejado: ").append(buscar.getDesejo()).append(System.lineSeparator());				
 			}
 
-			actions.put(builder.toString(), ChatAction.typing);
+			actions.add(new ActionMessage(builder.toString(), ChatAction.typing));
 		} else {
 			getNext().processDecision(text, actions);
 		}

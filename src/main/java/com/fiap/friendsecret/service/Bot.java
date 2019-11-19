@@ -1,8 +1,8 @@
 package com.fiap.friendsecret.service;
 
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map.Entry;
 
 import javax.annotation.PostConstruct;
 
@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import com.fiap.friendsecret.decision.DecisionChain;
 import com.fiap.friendsecret.decision.DecisionChainFactory;
 import com.fiap.friendsecret.exception.SecretFriendException;
+import com.fiap.friendsecret.model.ActionMessage;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.model.request.ChatAction;
@@ -54,7 +55,7 @@ public class Bot {
     	chain = decisionChainFactory.createDecisionChain();
     }
     
-    @Scheduled(fixedDelay = 5000) 
+    @Scheduled(fixedDelay = 3000) 
     private void buscarMensagens() {
         //executa comando no Telegram para obter as mensagens pendentes a partir de um off-set (limite inicial)
     	this.updatesResponse =  this.bot.execute(new GetUpdates().limit(100).offset(m));
@@ -70,33 +71,33 @@ public class Bot {
 
             System.out.println("Recebendo mensagem:"+ update.message().text());
 
-            LinkedHashMap<String, ChatAction> nextAction = checkActionForMessage(update.message().text());
+            Collection<ActionMessage> nextActions = checkActionForMessage(update.message().text());
             
-            for (Entry<String, ChatAction> acao : nextAction.entrySet()) {
+            for (ActionMessage acao : nextActions) {
             	
             	//envio de "Escrevendo" antes de enviar a resposta
-            	this.baseResponse = this.bot.execute(new SendChatAction(update.message().chat().id(), acao.getValue().name()));
+            	this.baseResponse = this.bot.execute(new SendChatAction(update.message().chat().id(), acao.getChatAction().name()));
             	
             	//verificação de ação de chat foi enviada com sucesso
             	System.out.println("Resposta de Chat Action Enviada?" + this.baseResponse.isOk());
             	
             	//envio da mensagem de resposta
-            	this.sendResponse = this.bot.execute(new SendMessage(update.message().chat().id(),acao.getKey()));
+            	this.sendResponse = this.bot.execute(new SendMessage(update.message().chat().id(),acao.getMessage()));
             	//verificação de mensagem enviada com sucesso
             	System.out.println("Mensagem Enviada?" +sendResponse.isOk());
 			}
         }
 	}
 
-	private LinkedHashMap<String, ChatAction> checkActionForMessage(final String text) {
-		LinkedHashMap<String, ChatAction> actions = new LinkedHashMap<>();
+	private Collection<ActionMessage> checkActionForMessage(final String text) {
+		List<ActionMessage> actions = new ArrayList<>();
 		
 		try {
 			chain.processDecision(text, actions);
 		} catch (SecretFriendException e) {
-			actions.put(e.getMessage(), ChatAction.typing);
+			actions.add(new ActionMessage(e.getMessage(), ChatAction.typing));
 		} catch (Exception e) {
-			actions.put("Ocorreu um erro desconhecido no aplicativo... por favor tente novamente", ChatAction.typing);
+			actions.add(new ActionMessage("Ocorreu um erro desconhecido no aplicativo... por favor tente novamente", ChatAction.typing));
 			e.printStackTrace();
 		}
 		

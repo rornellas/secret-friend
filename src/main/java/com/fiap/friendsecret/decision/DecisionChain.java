@@ -1,11 +1,11 @@
 package com.fiap.friendsecret.decision;
 
-import java.util.Map;
+import java.util.List;
 
-import com.pengrad.telegrambot.model.request.ChatAction;
+import com.fiap.friendsecret.model.ActionMessage;
 
 public interface DecisionChain {
 
-	void processDecision(String text, Map<String, ChatAction> actions);
+	void processDecision(String text, List<ActionMessage> actions);
 	
 }
