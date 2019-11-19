@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Manager {
-    static Map<String, String> response = new HashMap<>();
+    static Map<String, Object> response = new HashMap<>();
     static String questionBot;
     private String answerUser;
 
@@ -13,7 +13,7 @@ public class Manager {
         this.answerUser = answer;
     }
 
-    public void setResponse(Map<String, String> response) {
+    public void setResponse(Map<String, Object> response) {
         Manager.response = response;
     }
 
@@ -21,7 +21,13 @@ public class Manager {
         if ( questionBot == null) {
             questionBot = "Olá, seja Bem Vindo! Você gostatia de participar?";
         } else {
-            questionBot = response.get(this.answerUser.toUpperCase());;
+            try {
+                Object result = response.get(questionBot);
+                if (((HashMap) result).size() > 0) { questionBot = ((HashMap) result).get(answerUser.toUpperCase()).toString(); }
+            } catch (Exception e) {
+                questionBot = "Desculpe, não entendi sua resposta \n";
+                e.getMessage();
+            }
         }
         return questionBot;
     }

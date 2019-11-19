@@ -10,11 +10,20 @@ import java.util.Map;
 public class Memory {
 
     private Manager manager = new Manager();
+    private Map<String, Object> question = new HashMap<>();
 
     public void loadResponse() {
-        Map<String, String> response = new HashMap<>();
-        response.put("SIM", "Informe qual seu apelido ?");
-        response.put("NÃO", "Em que posso te ajudar ?");
-        manager.setResponse(response);
+        Map<String, String> response1 = new HashMap<>();
+        response1.put("SIM", "Informe qual seu apelido ?");
+        response1.put("NÃO", "Em que posso te ajudar ?");
+        question.put("Olá, seja Bem Vindo! Você gostatia de participar?", response1);
+        manager.setResponse(question);
+
+        Map<String, String> response2 = new HashMap<>();
+        question.put("Informe qual seu apelido ?", response2);
+        manager.setResponse(question);
+
+        Map<String, String> response3 = new HashMap<>();
+        question.put("Desculpe, não entendi sua resposta \n", response3);
     }
 }
